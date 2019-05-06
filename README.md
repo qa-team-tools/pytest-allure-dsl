@@ -11,6 +11,11 @@ pip install pytest-allure-dsl
 Enable plugin
 -------------
 
+```python
+# conftest.py
+pytest_plugins = ['pytest_allure_dsl']
+```
+
 ```bash
 pytest --allure-dsl
 ```
