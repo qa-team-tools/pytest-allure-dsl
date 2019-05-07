@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from functools import wraps
+import os
 
 import yaml
+from yaml.error import YAMLError
 from yaml.loader import Loader as FullLoader
 import pytest
 from _pytest.mark import MarkInfo, Mark
-from allure.constants import Label
+from allure.constants import Label, AttachmentType
 from allure.pytest_plugin import MASTER_HELPER, LazyInitStepContext
 
 
@@ -19,26 +20,117 @@ def pytest_addoption(parser):
     )
 
 
-def pytest_collection_modifyitems(session, config, items):
-    if config.getoption('--allure-dsl'):
-        for item in items:
-            AllureDSL(item).apply()
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config):
+    if config.option.allure_dsl and not config.option.allurereportdir:
+        config.option.allurereportdir = './.allure'
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(session):
+    if session.config.option.allure_dsl:
+        for item in session.items:
+            item.allure_dsl = AllureDSL(item)
+            item.allure_dsl.build()
 
 
 @pytest.fixture(scope='function')
 def allure_dsl(request):
-    return AllureDSL(request.node)
+    """
+    Allure DSL instance of test node
+    """
+    return request.node.allure_dsl
+
+
+@pytest.fixture('function', autouse=True)
+def __allure_dls_pre_post_actions__(request, allure_dsl):
+    if request.config.option.allure_dsl:
+        MASTER_HELPER.description(allure_dsl.description)
+
+        try:
+            yield
+        finally:
+            if request.config.option.allure_dsl:
+                allure_dsl.add_attachments()
+
+
+def _yaml_load(string):
+    try:
+        return yaml.load(str(string), Loader=FullLoader)
+    except YAMLError:
+        return {}
+
+
+class BaseAllureDSLException(Exception):
+    pass
+
+
+class InvalidInstruction(BaseAllureDSLException):
+    pass
+
+
+class StepIsNotImplemented(InvalidInstruction):
+    pass
 
 
 class AllureDSL(object):
 
+    __labels__ = (
+        Label.FEATURE,
+        Label.STORY,
+        Label.SEVERITY,
+        Label.ISSUE,
+        Label.TESTCASE,
+        Label.THREAD,
+        Label.HOST,
+        Label.FRAMEWORK,
+        Label.LANGUAGE,
+    )
+
+    __allow_inherit_from_parent__ = (
+        Label.FEATURE,
+        Label.ISSUE,
+        Label.THREAD,
+        Label.HOST,
+        Label.FRAMEWORK,
+        Label.LANGUAGE,
+    )
+
     def __init__(self, node):
         self._node = node
-        self._instructions = yaml.load(str(self._node.obj.__doc__), Loader=FullLoader)
+        self._instructions = _yaml_load(self._node.obj.__doc__)
+        self._inherit_from_parent()
 
-    @property
-    def node(self):
-        return self._node
+        self._is_built = False
+
+    def _inherit_from_parent(self):
+        if not isinstance(self._instructions, dict):
+            self._instructions = {}
+
+        parent_instructions = _yaml_load(self._node.parent.obj.__doc__)
+
+        if not isinstance(parent_instructions, dict):
+            return
+
+        for label in self.__allow_inherit_from_parent__:
+            if label in parent_instructions and label not in self._instructions:
+                self._instructions[label] = parent_instructions[label]
+
+    def _build_markers(self):
+        for label, value in self.labels:
+            name = '{}.{}'.format(Label.DEFAULT, label)
+            args = (value,) if isinstance(value, str) else tuple(value)
+
+            mark = Mark(name=name, args=args, kwargs={})
+            mark_info = MarkInfo(marks=[mark])
+
+            self._node.own_markers.append(mark)
+            self._node.keywords[name] = mark_info
+
+            if 'pytestmark' not in self._node.keywords:
+                self._node.keywords['pytestmark'] = []
+
+            self._node.keywords['pytestmark'].append(mark)
 
     @property
     def instructions(self):
@@ -51,57 +143,124 @@ class AllureDSL(object):
 
         return {}
 
-    def step(self, key, name=None):
-        if name is not None:
-            return LazyInitStepContext(MASTER_HELPER, name)
+    @property
+    def labels(self):
+        return ((k, v) for k, v in self._instructions.items() if k in self.__labels__)
 
-        step = self.steps[key]
+    @property
+    def feature(self):
+        return self._instructions.get(Label.FEATURE)
+
+    @property
+    def story(self):
+        return self._instructions.get(Label.STORY)
+
+    @property
+    def severity(self):
+        return self._instructions.get(Label.SEVERITY)
+
+    @property
+    def issue(self):
+        return self._instructions.get(Label.ISSUE)
+
+    @property
+    def test_id(self):
+        return self._instructions.get(Label.TESTCASE)
+
+    @property
+    def thread(self):
+        return self._instructions.get(Label.THREAD)
+
+    @property
+    def host(self):
+        return self._instructions.get(Label.HOST)
+
+    @property
+    def framework(self):
+        return self._instructions.get(Label.FRAMEWORK)
+
+    @property
+    def language(self):
+        return self._instructions.get(Label.LANGUAGE)
+
+    @property
+    def attachments(self):
+        return self._instructions.get('attachments', [])
+
+    @property
+    def description(self):
+        return self._instructions.get('description')
+
+    def step(self, key, title=None):
+        if title is not None:
+            if key not in self.steps:
+                raise StepIsNotImplemented(key)
+
+            return LazyInitStepContext(MASTER_HELPER, title)
+
+        try:
+            step = self.steps[key]
+        except KeyError:
+            raise StepIsNotImplemented(key)
 
         if isinstance(step, dict):
-            step_name = step['name']
+            try:
+                step_name = step['title']
+            except KeyError:
+                raise InvalidInstruction(
+                    'Key "title" is required option for step',
+                )
         else:
             step_name = step
 
         return LazyInitStepContext(MASTER_HELPER, step_name)
 
-    def apply(self):
-        if getattr(self._node, '__allure_dsl_class__', None):
+    def add_attachments(self):
+        file_ext_to_type = {
+            'txt': AttachmentType.TEXT,
+            'json': AttachmentType.JSON,
+            'jpg': AttachmentType.JPG,
+            'jpeg': AttachmentType.JPG,
+            'png': AttachmentType.PNG,
+            'html': AttachmentType.HTML,
+            'htm': AttachmentType.HTML,
+            'xml': AttachmentType.XML,
+        }
+
+        for attach in self.attachments:
+            if not isinstance(attach, dict):
+                raise InvalidInstruction('Attach must be dictionary')
+
+            try:
+                title = attach['title']
+            except KeyError:
+                raise InvalidInstruction('"title" is required option for attach')
+
+            path = attach.get('file')
+            content = attach.get('content')
+
+            if not path and not content:
+                raise InvalidInstruction('"file" or "content" is required option for attach')
+
+            if path and os.path.exists(path):
+                file_ext = path.split('.')[-1]
+                attach_type = file_ext_to_type.get(
+                    file_ext, AttachmentType.OTHER,
+                )
+                with open(path, 'r') as fp:
+                    MASTER_HELPER.attach(title, fp.read(), type=attach_type)
+
+            if content:
+                attach_type = file_ext_to_type.get(
+                    attach.get('type'), AttachmentType.TEXT,
+                )
+                MASTER_HELPER.attach(title, content, type=attach_type)
+
+    def build(self):
+        if self._is_built:
             return
 
-        setattr(self._node, '__allure_dsl_class__', self.__class__)
+        if isinstance(self._instructions, dict):
+            self._build_markers()
 
-        def apply_description(string):
-            def wrapper(func):
-                @wraps(func)
-                def wrapped(*args, **kwargs):
-                    MASTER_HELPER.description(string)
-                    return func(*args, **kwargs)
-
-                return wrapped
-            return wrapper
-
-        if self._node.obj.__doc__:
-            if isinstance(self._instructions, dict):
-                exclude = ('steps', 'description')
-
-                for label, value in ((k, v) for k, v in self._instructions.items() if k not in exclude):
-                    name = '{}.{}'.format(Label.DEFAULT, label)
-                    args = (value,) if isinstance(value, str) else tuple(value)
-
-                    mark = Mark(name=name, args=args, kwargs={})
-                    mark_info = MarkInfo(marks=[mark])
-
-                    self._node.own_markers.append(mark)
-                    self._node.keywords[name] = mark_info
-
-                    if 'pytestmark' not in self._node.keywords:
-                        self._node.keywords['pytestmark'] = []
-
-                    self._node.keywords['pytestmark'].append(mark)
-
-                    description = self._instructions.get('description', None)
-
-                    if description is not None:
-                        self._node.obj = apply_description(description)(self._node.obj)
-            else:
-                self._node.obj = apply_description(self._node.obj.__doc__)(self._node.obj)
+        self._is_built = True
