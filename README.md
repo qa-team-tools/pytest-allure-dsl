@@ -32,8 +32,8 @@ pytest_plugins = ['pytest_allure_dsl']
 
 By default allure dir is **./.allure**, you can change it with **--alluredir** option
 
-Using allure labels and description
------------------------------------
+Usage
+-----
 
 ```python
 """
@@ -43,14 +43,20 @@ feature:
 """
 
 
-def test_example():
+def test_example(allure_dsl):
     """
     story: test story string or story list
     description: test description string
     issue: issue for example
-    ... and etc allure labels
+    steps:
+      1: step one
+      2: step two
     """
-    pass
+    with allure_dsl.step(1):
+        pass
+
+    with allure_dsl.step(2):
+        pass
 
 
 class TestExample:
@@ -64,66 +70,16 @@ class TestExample:
         """
         story: test story string or story list
         description: test description string
+        attachments:
+          - title: jsonschema
+            file: jsonschemaes/schema.json
         """
         pass
 ```
 
-What label can be re-writen
----------------------------
+Top level labels
+-----------------
 
 * feature
 * issue
 * host
-
-Using allure steps from dsl
----------------------------
-
-```python
-def test_example(allure_dsl):
-    """
-    steps:
-      1: step one
-      2: step two
-    """
-    with allure_dsl.step(1):
-        pass
-
-    with allure_dsl.step(2):
-        pass
-```
-
-Using allure attachments
-------------------------
-
-```python
-def test_example_file():
-    """
-    attachments:
-      - title: jsonschema
-        file: jsonschemaes/schema.json
-    """
-    pass
-
-
-def test_example_content():
-    """
-    attachments:
-      - title: simple text or something
-        content: some content
-    """
-
-
-def test_example_content_with_type():
-    """
-    attachments:
-      - title: simple text or something
-        type: json
-        content: '{"hello": "world"}'
-    """
-    pass
-```
-
-Advantages
-----------
-You can add custom keys for interpretation.
-Plugin can be using for sync to jira zephyr, jira kanoah or another test case storage.

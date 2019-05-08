@@ -14,7 +14,7 @@ setup(
     url='https://github.com/trifonovmixail/pytest-allure-dsl',
     py_modules=['pytest_allure_dsl'],
     install_requires=[
-        'pytest >= 3.6',
+        'pytest>=3.6',
         'pytest-allure-adaptor==1.7.10',
         'PyYAML',
     ],
