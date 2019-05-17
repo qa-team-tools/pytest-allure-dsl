@@ -247,7 +247,7 @@ class AllureDSL(object):
                 attach_type = file_ext_to_type.get(
                     file_ext, AttachmentType.OTHER,
                 )
-                with open(path, 'r') as fp:
+                with open(path, 'rb') as fp:
                     MASTER_HELPER.attach(title, fp.read(), type=attach_type)
 
             if content:
