@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-feature:
-  - common feature from module to test functions
-  - can be re-writen from test case doc
-  - can be simple string
+feature: single-line common feature from module to test functions.
+
+# NOT recommended to set "feature" HERE.
+# Use test-functions docstrings instead or other constructions
+# Due to nature of allure-python: all content of THIS block will be copied into description of each(!) test
 """
 
 
@@ -17,12 +18,16 @@ def test_example_1(allure_dsl):
           file: attachments/example.json
     steps:
         1: Hello World!
-        2: By World!
+        activity: living in the world!
+        3: Bye World!
     """
     with allure_dsl.step(1):
         pass
 
-    with allure_dsl.step(2):
+    with allure_dsl.step('activity'):
+        pass
+
+    with allure_dsl.step(3):
         pass
 
 
