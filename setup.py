@@ -8,7 +8,6 @@ setup(
     version_format='{tag}',
     setup_requires=['setuptools-git-version'],
     description='pytest plugin to test case doc string dls instructions',
-    long_description=open('README.md').read(),
     author='Mikhail Trifonov',
     author_email='trifonov.net@gmail.com',
     url='https://github.com/trifonovmixail/pytest-allure-dsl',
