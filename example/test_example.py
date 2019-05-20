@@ -2,10 +2,6 @@
 
 """
 feature: single-line common feature from module to test functions.
-
-# NOT recommended to set "feature" HERE.
-# Use test-functions docstrings instead or other constructions
-# Due to nature of allure-python: all content of THIS block will be copied into description of each(!) test
 """
 
 
