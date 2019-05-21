@@ -16,6 +16,9 @@ from allure.constants import Label, AttachmentType
 from allure.pytest_plugin import MASTER_HELPER, LazyInitStepContext
 
 
+allure = MASTER_HELPER
+
+
 def pytest_addoption(parser):
     parser.addoption(
         '--allure-dsl',
@@ -158,16 +161,16 @@ class AllureDSL(object):
                     file_ext, AttachmentType.OTHER,
                 )
                 with open(path, 'rb') as fp:
-                    MASTER_HELPER.attach(title, fp.read(), type=attach_type)
+                    allure.attach(title, fp.read(), type=attach_type)
 
             if content:
                 attach_type = file_ext_to_type.get(
                     attach.get('type'), AttachmentType.TEXT,
                 )
-                MASTER_HELPER.attach(title, content, type=attach_type)
+                allure.attach(title, content, type=attach_type)
 
     def _setup_description(self):
-        MASTER_HELPER.description(self.description)
+        allure.description(self.description)
 
         if self._node.module.__doc__:
             module_instructions = _yaml_load(self._node.module.__doc__)
@@ -257,7 +260,7 @@ class AllureDSL(object):
             if key not in self.steps:
                 raise StepIsNotImplemented(key)
 
-            return LazyInitStepContext(MASTER_HELPER, title)
+            return LazyInitStepContext(allure, title)
 
         try:
             step = self.steps[key]
@@ -274,7 +277,7 @@ class AllureDSL(object):
         else:
             step_name = step
 
-        return LazyInitStepContext(MASTER_HELPER, step_name)
+        return LazyInitStepContext(allure, step_name)
 
     def build(self):
         if self._is_built:
