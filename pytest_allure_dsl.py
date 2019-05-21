@@ -11,6 +11,7 @@ try:
     from _pytest.mark import MarkInfo
 except ImportError:
     MarkInfo = None
+    from _pytest.mark.structures import NodeMarkers
 from allure.constants import Label, AttachmentType
 from allure.pytest_plugin import MASTER_HELPER, LazyInitStepContext
 
@@ -180,11 +181,12 @@ class AllureDSL(object):
             args = (value,) if isinstance(value, str) else tuple(value)
 
             mark = Mark(name=name, args=args, kwargs={})
-            if MarkInfo is not None:
-                mark_info = MarkInfo(marks=[mark])
-                self._node.keywords[name] = mark_info
-
             self._node.own_markers.append(mark)
+
+            if MarkInfo is None:
+                self._node.keywords[name] = NodeMarkers(own_markers=[mark])
+            else:
+                self._node.keywords[name] = MarkInfo(marks=[mark])
 
             if 'pytestmark' not in self._node.keywords:
                 self._node.keywords['pytestmark'] = []
