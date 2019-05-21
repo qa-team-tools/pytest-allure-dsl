@@ -12,7 +12,10 @@ try:
 except ImportError:
     MarkInfo = None
 from allure.constants import Label, AttachmentType
-from allure.pytest_plugin import MASTER_HELPER as allure, LazyInitStepContext
+from allure.pytest_plugin import MASTER_HELPER, LazyInitStepContext
+
+
+allure = MASTER_HELPER
 
 
 def pytest_addoption(parser):
