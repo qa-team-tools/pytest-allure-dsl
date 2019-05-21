@@ -14,7 +14,7 @@ setup(
     py_modules=['pytest_allure_dsl'],
     install_requires=[
         'pytest',
-        'pytest-allure-adaptor @ git+https://github.com/oztqa/allure-pytest.git@1.7.11',
+        'pytest-allure-adaptor2>=1.7.11',
         'PyYAML',
     ],
     keywords='py.test pytest allure dsl',
