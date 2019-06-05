@@ -15,7 +15,9 @@ def test_example_1(allure_dsl):
     steps:
         1: Hello World!
         activity: living in the world!
-        3: Bye World!
+        2: Cook {dish} and fry {second_dish}
+        3: Long good bye
+        3-1: bye-bye!
     """
     with allure_dsl.step(1):
         pass
@@ -23,8 +25,12 @@ def test_example_1(allure_dsl):
     with allure_dsl.step('activity'):
         pass
 
-    with allure_dsl.step(3):
+    with allure_dsl.step(2, dish='soup', second_dish='sausages'):
         pass
+
+    with allure_dsl.step(3):
+        with allure_dsl.step('3-1'):
+            pass
 
 
 def test_example_2():

@@ -255,13 +255,7 @@ class AllureDSL(object):
     def description(self):
         return self._instructions.get('description')
 
-    def step(self, key, title=None):
-        if title is not None:
-            if key not in self.steps:
-                raise StepIsNotImplemented(key)
-
-            return LazyInitStepContext(allure, title)
-
+    def step(self, key, **kwargs):
         try:
             step = self.steps[key]
         except KeyError:
@@ -277,7 +271,7 @@ class AllureDSL(object):
         else:
             step_name = step
 
-        return LazyInitStepContext(allure, step_name)
+        return LazyInitStepContext(allure, step_name.format(**kwargs))
 
     def build(self):
         if self._is_built:
