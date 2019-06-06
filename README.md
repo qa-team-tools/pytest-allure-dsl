@@ -49,10 +49,10 @@ def test_example(allure_dsl):
     description: test description string
     issue: issue for example
     steps:
-      1: step one
+      1: step {num}
       2: step two
     """
-    with allure_dsl.step(1):
+    with allure_dsl.step(1, num='one'):
         pass
 
     with allure_dsl.step(2):
