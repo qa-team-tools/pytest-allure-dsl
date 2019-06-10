@@ -3,6 +3,7 @@
 import os
 
 import yaml
+from future.utils import raise_from
 from yaml.error import YAMLError
 from yaml.loader import Loader as FullLoader
 import pytest
@@ -60,13 +61,6 @@ def __allure_dls_pre_post_actions__(request, allure_dsl):
             yield
 
 
-def _yaml_load(string):
-    try:
-        return yaml.load(str(string), Loader=FullLoader)
-    except YAMLError:
-        return {}
-
-
 class BaseAllureDSLException(Exception):
     pass
 
@@ -104,7 +98,8 @@ class AllureDSL(object):
 
     def __init__(self, node):
         self._node = node
-        self._instructions = _yaml_load(self._node.obj.__doc__)
+        self.description_load_error = None
+        self._instructions = self._yaml_load(self._node.obj.__doc__)
         self._inherit_from_parent()
 
         self._is_built = False
@@ -119,7 +114,7 @@ class AllureDSL(object):
         if not isinstance(self._instructions, dict):
             self._instructions = {}
 
-        parent_instructions = _yaml_load(self._node.parent.obj.__doc__)
+        parent_instructions = self._yaml_load(self._node.parent.obj.__doc__)
 
         if not isinstance(parent_instructions, dict):
             return
@@ -173,7 +168,7 @@ class AllureDSL(object):
         allure.description(self.description)
 
         if self._node.module.__doc__:
-            module_instructions = _yaml_load(self._node.module.__doc__)
+            module_instructions = self._yaml_load(self._node.module.__doc__)
 
             if isinstance(module_instructions, dict):
                 self._node.module.__doc__ = module_instructions.get('description')
@@ -195,6 +190,13 @@ class AllureDSL(object):
                 self._node.keywords['pytestmark'] = []
 
             self._node.keywords['pytestmark'].append(mark)
+
+    def _yaml_load(self, string):
+        try:
+            return yaml.load(str(string), Loader=FullLoader)
+        except YAMLError as e:
+            self.description_load_error = e
+            return {}
 
     @property
     def instructions(self):
@@ -256,6 +258,8 @@ class AllureDSL(object):
         return self._instructions.get('description')
 
     def step(self, key, **kwargs):
+        if self.description_load_error:
+            raise raise_from(InvalidInstruction('Description has been loaded with error.'), self.description_load_error)
         try:
             step = self.steps[key]
         except KeyError:
