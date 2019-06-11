@@ -16,6 +16,7 @@ setup(
         'pytest',
         'pytest-allure-adaptor2>=1.7.11',
         'PyYAML',
+        'future'
     ],
     keywords='py.test pytest allure dsl',
     zip_safe=False,
