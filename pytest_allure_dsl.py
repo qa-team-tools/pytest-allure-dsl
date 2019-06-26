@@ -73,6 +73,10 @@ class StepIsNotImplemented(InvalidInstruction):
     pass
 
 
+class StepsWasNotUsed(BaseAllureDSLException):
+    pass
+
+
 class AllureDSL(object):
 
     __labels__ = (
@@ -103,12 +107,14 @@ class AllureDSL(object):
         self._inherit_from_parent()
 
         self._is_built = False
+        self._steps_was_used = []
 
     def __enter__(self):
         self._setup_description()
 
     def __exit__(self, *args, **kwargs):
         self._add_attachments()
+        self._check_steps_was_used()
 
     def _inherit_from_parent(self):
         if not isinstance(self._instructions, dict):
@@ -198,6 +204,16 @@ class AllureDSL(object):
             self.description_load_error = e
             return {}
 
+    def _check_steps_was_used(self):
+        not_used_steps = []
+
+        for key in self.steps.keys():
+            if key not in self._steps_was_used:
+                not_used_steps.append(key)
+
+        if not_used_steps:
+            raise StepsWasNotUsed(*not_used_steps)
+
     @property
     def instructions(self):
         return self._instructions
@@ -274,6 +290,9 @@ class AllureDSL(object):
                 )
         else:
             step_name = step
+
+        if key not in self._steps_was_used:
+            self._steps_was_used.append(key)
 
         return LazyInitStepContext(allure, step_name.format(**kwargs))
 
