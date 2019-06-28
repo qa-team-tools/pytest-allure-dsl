@@ -107,7 +107,7 @@ class AllureDSL(object):
         self._inherit_from_parent()
 
         self._is_built = False
-        self._steps_was_used = []
+        self._steps_was_used = set()
 
     def __enter__(self):
         self._setup_description()
@@ -205,11 +205,7 @@ class AllureDSL(object):
             return {}
 
     def _check_steps_was_used(self):
-        not_used_steps = []
-
-        for key in self.steps.keys():
-            if key not in self._steps_was_used:
-                not_used_steps.append(key)
+        not_used_steps = tuple(set(self.steps.keys()) - self._steps_was_used)
 
         if not_used_steps:
             raise StepsWasNotUsed(*not_used_steps)
@@ -291,8 +287,7 @@ class AllureDSL(object):
         else:
             step_name = step
 
-        if key not in self._steps_was_used:
-            self._steps_was_used.append(key)
+        self._steps_was_used.add(key)
 
         return LazyInitStepContext(allure, step_name.format(**kwargs))
 
