@@ -205,7 +205,7 @@ class AllureDSL(object):
             return {}
 
     def _check_steps_was_used(self):
-        not_used_steps = tuple(set(self.steps.keys()) - self._steps_was_used)
+        not_used_steps = set(self.steps.keys()) - self._steps_was_used
 
         if not_used_steps:
             raise StepsWasNotUsed(*not_used_steps)
