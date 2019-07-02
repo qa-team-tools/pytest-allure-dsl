@@ -39,8 +39,17 @@ def pytest_configure(config):
 def pytest_collection_modifyitems(session):
     if session.config.option.allure_dsl:
         for item in session.items:
+            item.status = 'pending'
             item.allure_dsl = AllureDSL(item)
             item.allure_dsl.build()
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item):
+    item.status = 'running'
+    outcome = yield
+    result = outcome.get_result()
+    item.status = result.outcome
 
 
 @pytest.fixture(scope='function')
@@ -102,7 +111,7 @@ class AllureDSL(object):
 
     def __init__(self, node):
         self._node = node
-        self.description_load_error = None
+        self._description_load_error = None
         self._instructions = self._yaml_load(self._node.obj.__doc__)
         self._inherit_from_parent()
 
@@ -114,7 +123,8 @@ class AllureDSL(object):
 
     def __exit__(self, *args, **kwargs):
         self._add_attachments()
-        self._check_steps_was_used()
+        if self._node.status == 'passed':
+            self._check_steps_was_used()
 
     def _inherit_from_parent(self):
         if not isinstance(self._instructions, dict):
@@ -201,7 +211,7 @@ class AllureDSL(object):
         try:
             return yaml.load(str(string), Loader=FullLoader)
         except YAMLError as e:
-            self.description_load_error = e
+            self._description_load_error = e
             return {}
 
     def _check_steps_was_used(self):
@@ -270,8 +280,8 @@ class AllureDSL(object):
         return self._instructions.get('description')
 
     def step(self, key, **kwargs):
-        if self.description_load_error:
-            raise raise_from(InvalidInstruction('Description has been loaded with error.'), self.description_load_error)
+        if self._description_load_error:
+            raise raise_from(InvalidInstruction('Description has been loaded with error.'), self._description_load_error)
         try:
             step = self.steps[key]
         except KeyError:
