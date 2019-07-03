@@ -3,9 +3,6 @@
 """
 feature: single-line common feature from module to test functions.
 """
-import pytest
-
-from pytest_allure_dsl import InvalidInstruction
 
 
 def test_example_1(allure_dsl):
@@ -59,21 +56,3 @@ class TestExample:
               content: '{"hello": "world"}'
         """
         pass
-
-
-def test_with_invalid_description_should_work_without_using_pytest_dsl():
-    """
-    invalid: yaml: description:
-    """
-    pass
-
-
-def test_with_invalid_description_should_fail_if_using_pytest_dsl(allure_dsl):
-    """
-    steps:
-        1: Hello World!
-        2: invalid: yaml
-    """
-    with pytest.raises(InvalidInstruction):
-        with allure_dsl.step(1):
-            pass
