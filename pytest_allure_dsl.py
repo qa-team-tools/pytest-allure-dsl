@@ -46,10 +46,10 @@ def pytest_collection_modifyitems(session):
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item):
-    item.status = 'running'
     outcome = yield
     result = outcome.get_result()
-    item.status = result.outcome
+    if item.status in ('pending', 'passed'):
+        item.status = result.outcome
 
 
 @pytest.fixture(scope='function')
