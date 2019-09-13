@@ -30,7 +30,7 @@ def test_missed_step(allure_dsl, request):
     """
     with allure_dsl.step(1):
         pass
-    request.node.allure_dsl.__exit__()
+    request.node.allure_dsl._check_steps_was_used()
 
 
 def test_dynamic_skip(allure_dsl):
