@@ -39,17 +39,22 @@ def pytest_configure(config):
 def pytest_collection_modifyitems(session):
     if session.config.option.allure_dsl:
         for item in session.items:
-            item.status = 'pending'
             item.allure_dsl = AllureDSL(item)
             item.allure_dsl.build()
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item):
+def pytest_runtest_makereport(item, call):
     outcome = yield
     result = outcome.get_result()
-    if item.status in ('pending', 'passed'):
-        item.status = result.outcome
+
+    if call.when == 'setup':
+        # rewrite reports from previous runs in case of test rerun.
+        item.allure_dsl.reports = {
+            call.when: result
+        }
+    else:
+        item.allure_dsl.reports[call.when] = result
 
 
 @pytest.fixture(scope='function')
@@ -117,14 +122,16 @@ class AllureDSL(object):
 
         self._is_built = False
         self._steps_was_used = set()
+        self.reports = {}
 
     def __enter__(self):
         self._setup_description()
 
     def __exit__(self, *args, **kwargs):
         self._add_attachments()
-        if self._node.status == 'passed':
-            self._check_steps_was_used()
+        if 'call' in self.reports:
+            if self.reports['call'].passed:
+                self._check_steps_was_used()
 
     def _inherit_from_parent(self):
         if not isinstance(self._instructions, dict):
@@ -218,6 +225,9 @@ class AllureDSL(object):
         not_used_steps = set(self.steps.keys()) - self._steps_was_used
 
         if not_used_steps:
+            if hasattr(self._node, 'execution_count'):
+                # No need for further rerun_failures
+                self._node.execution_count = float('inf')
             raise StepsWasNotUsed(*not_used_steps)
 
     @property
