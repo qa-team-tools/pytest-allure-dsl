@@ -13,6 +13,7 @@ setup(
     url='https://github.com/trifonovmixail/pytest-allure-dsl',
     py_modules=['pytest_allure_dsl'],
     install_requires=[
+        'wheel',
         'pytest',
         'pytest-allure-adaptor2>=1.7.11',
         'PyYAML',
