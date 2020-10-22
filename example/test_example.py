@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 
 """
-feature: single-line common feature from module to test functions.
+feature: module level feature
 """
 import allure
-import pytest
 
 
-# @pytest.mark.wip
-@allure.feature('unambigous feature.')
+@allure.feature('usual feature.')
 def test_example_1(allure_dsl):
     """
     story: story for example
@@ -39,7 +37,7 @@ def test_example_1(allure_dsl):
 
 def test_example_2():
     """
-    feature: re-writen feature
+    feature: function level feature
     story: story for example
     """
     pass
@@ -47,16 +45,18 @@ def test_example_2():
 
 def test_example_3():
     """
-    feature: re-writen feature
+    feature: function level feature
     story: story for example
-    issue: issue (other label type in new allure)
+    issue:
+        - issue1
+        - issue2
     """
     pass
 
 
 class TestExample:
     """
-    feature: common feature from class to test case methods
+    feature: class level feature
     """
 
     def test_example(self):

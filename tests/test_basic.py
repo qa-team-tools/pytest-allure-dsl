@@ -43,3 +43,22 @@ def test_dynamic_skip(allure_dsl):
         pytest.skip('No more!')
     with allure_dsl.step(2):
         pass
+
+
+def test_links():
+    """
+    issue: issue-1
+    link: http://ya.ru
+    test_case:
+        - tmfj1
+        - tmfj2
+    """
+    pass
+
+
+@pytest.mark.parametrize(('first', 'second', 'expectation'),
+                         [(1, 2, 3),
+                          pytest.param(2, 2, 5, marks=pytest.mark.xfail(reason='ups'))]
+                         )
+def test_parametrized(first, second, expectation):
+    assert first + second == expectation

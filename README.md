@@ -79,5 +79,9 @@ Top level labels
 -----------------
 
 * feature
+* story
+* epic
 * issue
+* link
+* test_case
 
