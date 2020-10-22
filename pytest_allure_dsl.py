@@ -2,22 +2,12 @@
 
 import os
 
-import yaml
-from future.utils import raise_from
-from yaml.error import YAMLError
-from yaml.loader import Loader as FullLoader
+import allure
 import pytest
-from _pytest.mark import Mark
-try:
-    from _pytest.mark import MarkInfo
-except ImportError:
-    MarkInfo = None
-    from _pytest.mark.structures import NodeMarkers
-from allure.constants import Label, AttachmentType
-from allure.pytest_plugin import MASTER_HELPER, LazyInitStepContext
-
-
-allure = MASTER_HELPER
+import yaml
+from _pytest.config import Config
+from allure_commons.types import LabelType, LinkType, AttachmentType
+from future.utils import raise_from
 
 
 def pytest_addoption(parser):
@@ -30,9 +20,9 @@ def pytest_addoption(parser):
 
 
 @pytest.hookimpl(tryfirst=True)
-def pytest_configure(config):
-    if config.option.allure_dsl and not config.option.allurereportdir:
-        config.option.allurereportdir = './.allure'
+def pytest_configure(config: Config):
+    if config.option.allure_dsl and not config.option.allure_report_dir:
+        config.option.allure_report_dir = './.allure'
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -40,7 +30,7 @@ def pytest_collection_modifyitems(session):
     if session.config.option.allure_dsl:
         for item in session.items:
             item.allure_dsl = AllureDSL(item)
-            item.allure_dsl.build()
+            item.allure_dsl.build(item)
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -68,7 +58,7 @@ def allure_dsl(request):
         return AllureDSL(request.node)
 
 
-@pytest.fixture('function', autouse=True)
+@pytest.fixture(scope='function', autouse=True)
 def __allure_dls_pre_post_actions__(request, allure_dsl):
     if request.config.option.allure_dsl:
         with allure_dsl:
@@ -92,26 +82,17 @@ class StepsWasNotUsed(BaseAllureDSLException):
 
 
 class AllureDSL(object):
-
-    __labels__ = (
-        Label.FEATURE,
-        Label.STORY,
-        Label.SEVERITY,
-        Label.ISSUE,
-        Label.TESTCASE,
-        Label.THREAD,
-        Label.HOST,
-        Label.FRAMEWORK,
-        Label.LANGUAGE,
-    )
+    __labels__ = {
+        LabelType.FEATURE: allure.feature,
+        LabelType.STORY: allure.story,
+        LabelType.SEVERITY: allure.severity,
+        LinkType.ISSUE: allure.issue,
+        LinkType.TEST_CASE: allure.testcase,
+    }
 
     __allow_inherit_from_parent__ = (
-        Label.FEATURE,
-        Label.ISSUE,
-        Label.THREAD,
-        Label.HOST,
-        Label.FRAMEWORK,
-        Label.LANGUAGE,
+        LabelType.FEATURE,
+        LinkType.ISSUE,
     )
 
     def __init__(self, node):
@@ -125,7 +106,7 @@ class AllureDSL(object):
         self.reports = {}
 
     def __enter__(self):
-        self._setup_description()
+        pass
 
     def __exit__(self, *args, **kwargs):
         self._add_attachments()
@@ -176,19 +157,23 @@ class AllureDSL(object):
             if path and os.path.exists(path):
                 file_ext = path.split('.')[-1]
                 attach_type = file_ext_to_type.get(
-                    file_ext, AttachmentType.OTHER,
+                    file_ext, AttachmentType.TEXT,
                 )
-                with open(path, 'rb') as fp:
-                    allure.attach(title, fp.read(), type=attach_type)
+                allure.attach.file(path, name=title,
+                                   attachment_type=attach_type,
+                                   extension=file_ext)
 
             if content:
+                extension = attach.get('type')
                 attach_type = file_ext_to_type.get(
-                    attach.get('type'), AttachmentType.TEXT,
+                    extension, AttachmentType.TEXT,
                 )
-                allure.attach(title, content, type=attach_type)
+                allure.attach(content, name=title,
+                              attachment_type=attach_type,
+                              extension=extension)
 
-    def _setup_description(self):
-        allure.description(self.description)
+    def _setup_description(self, item):
+        item.add_marker(allure.description(self.description))
 
         if self._node.module.__doc__:
             module_instructions = self._yaml_load(self._node.module.__doc__)
@@ -198,28 +183,8 @@ class AllureDSL(object):
 
     def _build_markers(self):
         for label, value in self.labels:
-            name = '{}.{}'.format(Label.DEFAULT, label)
-            args = (value,) if isinstance(value, str) else tuple(value)
-
-            mark = Mark(name=name, args=args, kwargs={})
-            self._node.own_markers.append(mark)
-
-            if MarkInfo is None:
-                self._node.keywords[name] = NodeMarkers(own_markers=[mark])
-            else:
-                self._node.keywords[name] = MarkInfo(marks=[mark])
-
-            if 'pytestmark' not in self._node.keywords:
-                self._node.keywords['pytestmark'] = []
-
-            self._node.keywords['pytestmark'].append(mark)
-
-    def _yaml_load(self, string):
-        try:
-            return yaml.load(str(string), Loader=FullLoader)
-        except YAMLError as e:
-            self._description_load_error = e
-            return {}
+            mark_decorator = self.__labels__[label](value)
+            self._node.add_marker(mark_decorator)
 
     def _check_steps_was_used(self):
         not_used_steps = set(self.steps.keys()) - self._steps_was_used
@@ -238,7 +203,6 @@ class AllureDSL(object):
     def steps(self):
         if isinstance(self._instructions, dict):
             return self._instructions.get('steps', {})
-
         return {}
 
     @property
@@ -247,39 +211,23 @@ class AllureDSL(object):
 
     @property
     def feature(self):
-        return self._instructions.get(Label.FEATURE)
+        return self._instructions.get(LabelType.FEATURE)
 
     @property
     def story(self):
-        return self._instructions.get(Label.STORY)
+        return self._instructions.get(LabelType.STORY)
 
     @property
     def severity(self):
-        return self._instructions.get(Label.SEVERITY)
+        return self._instructions.get(LabelType.SEVERITY)
 
     @property
     def issue(self):
-        return self._instructions.get(Label.ISSUE)
+        return self._instructions.get(LinkType.ISSUE)
 
     @property
     def test_id(self):
-        return self._instructions.get(Label.TESTCASE)
-
-    @property
-    def thread(self):
-        return self._instructions.get(Label.THREAD)
-
-    @property
-    def host(self):
-        return self._instructions.get(Label.HOST)
-
-    @property
-    def framework(self):
-        return self._instructions.get(Label.FRAMEWORK)
-
-    @property
-    def language(self):
-        return self._instructions.get(Label.LANGUAGE)
+        return self._instructions.get(LinkType.TEST_CASE)
 
     @property
     def attachments(self):
@@ -291,7 +239,8 @@ class AllureDSL(object):
 
     def step(self, key, **kwargs):
         if self._description_load_error:
-            raise raise_from(InvalidInstruction('Description has been loaded with error.'), self._description_load_error)
+            raise raise_from(InvalidInstruction('Description has been loaded with error.'),
+                             self._description_load_error)
         try:
             step = self.steps[key]
         except KeyError:
@@ -309,13 +258,21 @@ class AllureDSL(object):
 
         self._steps_was_used.add(key)
 
-        return LazyInitStepContext(allure, step_name.format(**kwargs))
+        return allure.step(step_name.format(**kwargs))
 
-    def build(self):
+    def build(self, item):
         if self._is_built:
             return
 
+        self._setup_description(item)
         if isinstance(self._instructions, dict):
             self._build_markers()
 
         self._is_built = True
+
+    def _yaml_load(self, string):
+        try:
+            return yaml.load(str(string), Loader=yaml.FullLoader)
+        except yaml.YAMLError as e:
+            self._description_load_error = e
+            return {}

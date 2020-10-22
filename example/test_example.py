@@ -3,8 +3,12 @@
 """
 feature: single-line common feature from module to test functions.
 """
+import allure
+import pytest
 
 
+# @pytest.mark.wip
+@allure.feature('unambigous feature.')
 def test_example_1(allure_dsl):
     """
     story: story for example
@@ -37,7 +41,16 @@ def test_example_2():
     """
     feature: re-writen feature
     story: story for example
-   """
+    """
+    pass
+
+
+def test_example_3():
+    """
+    feature: re-writen feature
+    story: story for example
+    issue: issue (other label type in new allure)
+    """
     pass
 
 

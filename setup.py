@@ -15,7 +15,7 @@ setup(
     install_requires=[
         'wheel',
         'pytest',
-        'pytest-allure-adaptor2>=1.7.11',
+        'allure-pytest>=2.8.18',
         'PyYAML',
         'future'
     ],

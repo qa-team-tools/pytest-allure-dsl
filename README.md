@@ -39,7 +39,6 @@ Usage
 """
 feature:
   - common feature from module to test case functions
-  - can be re-writen from test case function docstring
 """
 
 
@@ -63,7 +62,6 @@ class TestExample:
     """
     feature:
       - common feature from class to test case methods
-      - can be re-writen from test case method docstring
     """
 
     def test_example(self):
@@ -82,5 +80,4 @@ Top level labels
 
 * feature
 * issue
-* host
 
